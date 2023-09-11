@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+
+CONF_FILE=./conf/task.properties
+LOG_CONFIG=./conf/log4j2.xml
+
+while [ 1 ]
+do
+  echo "start rabbit test at `date` " >> program.status
+  java -Dlog4j.configurationFile=${LOG_CONFIG} -jar rabbit-test.jar ${CONF_FILE}
+  sleep 10
+done

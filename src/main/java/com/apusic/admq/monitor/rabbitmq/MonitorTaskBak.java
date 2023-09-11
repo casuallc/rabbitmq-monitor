@@ -2,6 +2,7 @@ package com.apusic.admq.monitor.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Address;
+import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -20,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
-public class MonitorTask {
+public class MonitorTaskBak {
     public AtomicLong sequence = new AtomicLong();
     public static AtomicLong failedCount = new AtomicLong();
 
@@ -38,8 +39,8 @@ public class MonitorTask {
     private Channel sendChannel;
     private Channel receiveChannel;
 
-    public MonitorTask(ScheduledExecutorService executorService, String service, String username,
-                       String password, TaskInfo info) {
+    public MonitorTaskBak(ScheduledExecutorService executorService, String service, String username,
+                          String password, TaskInfo info) {
         this.executorService = executorService;
         this.service = service;
         this.username = username;
@@ -113,6 +114,14 @@ public class MonitorTask {
             propBuilder.headers(Collections.singletonMap("__admq__task_id", msg.getId()));
             channel.basicPublish(info.getExchange(), info.getRoutingKey(), propBuilder.build(), msg.getData().getBytes(StandardCharsets.UTF_8));
             log.info("[{}] Send message {} successful.", info.getName(), msg.getId());
+        } catch (AlreadyClosedException e) {
+            if (e.getMessage().contains("connection is already closed")) {
+                reCreateConnection();
+            } else {
+                sendChannel = reCreateChannel(sendChannel);
+            }
+            log.error("[{}] 消息发送失败", info.getName(), e);
+            failedCount.incrementAndGet();
         } catch (Throwable e) {
             log.error("[{}] 消息发送失败", info.getName(), e);
             failedCount.incrementAndGet();
@@ -155,6 +164,8 @@ public class MonitorTask {
             if (System.currentTimeMillis() - msgInfo.getSendTime() > 3 * info.getInterval() * 1000) {
                 log.error("[{}] 长时间未接收到消息，请检查 MQ 服务是否正常", info.getName());
                 queue.poll();
+                receiveChannel = reCreateChannel(receiveChannel);
+                consumeMessage(receiveChannel);
                 failedCount.incrementAndGet();
             }
 
@@ -167,5 +178,42 @@ public class MonitorTask {
 
     public void close() {
         closed = true;
+    }
+
+    private synchronized void reCreateConnection() {
+        if (connection.isOpen()) {
+            return;
+        }
+        log.warn("[{}] Re create connection", info.getName());
+        try {
+            try {
+                connection.close();
+            } catch (Throwable ignore) {
+            }
+            connection = factory.newConnection(addresses);
+            sendChannel = reCreateChannel(sendChannel);
+            receiveChannel = reCreateChannel(receiveChannel);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private synchronized Channel reCreateChannel(Channel channel) {
+        if (channel.isOpen()) {
+            return channel;
+        }
+
+        log.warn("[{}] Re create channel", info.getName());
+        if (channel == null) {
+            return null;
+        }
+        try {
+            try {
+                channel.close();
+            } catch (Throwable ignore) {
+            }
+            return connection.createChannel();
+        } catch (Throwable ignore) {
+        }
+        return null;
     }
 }

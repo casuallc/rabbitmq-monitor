@@ -7,7 +7,6 @@ public class RabbitMonitor {
 
     public static void main(String[] args) throws Exception {
         RabbitMonitor main = new RabbitMonitor();
-        args = new String[] {"G:\\code\\admq\\rabbitmq-monitor\\src\\main\\resources\\task.properties"};
         main.run(args);
     }
 

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -41,5 +42,11 @@ public class MonitorTaskService {
             monitorTask.start();
         }
 
+        executorService.scheduleWithFixedDelay(() -> {
+            if (MonitorTask.failedCount.get() > 10) {
+                log.info("Too many failed, exist now.");
+                System.exit(-1);
+            }
+        }, 5, 5, TimeUnit.SECONDS);
     }
 }
