@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+  <Properties>
+    <Property name="admq.log.dir">logs</Property>
+    <Property name="admq.log.file">rabbit-monitor</Property>
+    <Property name="admq.log.level">info</Property>
+    <Property name="admq.log.appender">RollingFile</Property>
+    <Property name="admq.log.pattern">%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+    <Property name="admq.log.size">256M</Property>
+    <Property name="admq.log.keep.size">1G</Property>
+    <Property name="admq.log.keep.time">5d</Property>
+  </Properties>
+
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${admq.log.pattern}"/>
+    </Console>
+
+    <RollingFile name="RollingFile" fileName="${admq.log.dir}/${admq.log.file}"
+                 filePattern="${admq.log.dir}/${admq.log.file}-%d{yyyy-MM-dd}.log.gz">
+      <PatternLayout pattern="${admq.log.pattern}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="${admq.log.size}"/>
+      </Policies>
+      <DefaultRolloverStrategy max="100">
+        <Delete basePath="${admq.log.dir}" maxDepth="1">
+          <IfFileName glob="${admq.log.file-*.log.gz}">
+            <IfLastModified age="${admq.log.keep.time}">
+              <IfAny>
+                <IfAccumulatedFileSize exceeds="${admq.log.keep.size}" />
+                <IfAccumulatedFileCount exceeds="1000" />
+              </IfAny>
+            </IfLastModified>
+          </IfFileName>
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+  </Appenders>
+
+  <Loggers>
+    <Root level="INFO">
+      <AppenderRef ref="Console"/>
+    </Root>
+  </Loggers>
+
+</Configuration>
